@@ -10,7 +10,7 @@ st.markdown("""
 ## let us help you to find the tools you need!
 """)
 
-Problem = st.text_input('How can we help you?:')
+Problem = st.text_input('How can we help you?')
 button_pressed = st.button('Find the best tools')
 
 
@@ -22,5 +22,5 @@ if Problem and button_pressed:
     ).json()
 
     response = response["tool"]
-
-    st.write(response)
+    final_text = "Your recommended tool is "+ response
+    st.write(final_text)
