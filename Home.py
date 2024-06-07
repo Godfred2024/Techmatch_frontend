@@ -3,7 +3,7 @@ import requests
 
 st.image('images/logo-star.png',
          caption = 'TechMatch',
-         width=70)
+         width=90)
 
 st.title(" TechMatch ")
 st.markdown("""
