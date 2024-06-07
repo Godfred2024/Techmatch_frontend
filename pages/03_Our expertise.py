@@ -1,7 +1,7 @@
 import streamlit as st
-st.markdown('''TechMatch Areas of Expertise
+st.title('TechMatch Areas of Expertise')
 
-At TechMatch, we specialize in providing tailored solutions across a diverse range of fields to help you tackle challenges with the right technology. Our expertise spans the following key areas:
+st.markdown('''At TechMatch, we specialize in providing tailored solutions across a diverse range of fields to help you tackle challenges with the right technology. Our expertise spans the following key areas:
 
 **Finance**:\n
 Discover tools that enhance financial management, streamline accounting processes, and provide robust analytical capabilities to make informed decisions.
