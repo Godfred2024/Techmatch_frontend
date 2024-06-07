@@ -1,7 +1,9 @@
 import streamlit as st
 import requests
 
-
+st.image('/home/godfr/code/Godfred2024/TechMatch/images/logo-star.png',
+         caption = 'TechMatch',
+         width=70)
 
 st.title(" TechMatch ")
 st.markdown("""
@@ -20,5 +22,5 @@ if Problem and button_pressed:
     ).json()
 
     response = response["tool"]
-    
+
     st.write(response)
