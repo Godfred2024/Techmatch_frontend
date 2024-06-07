@@ -1,7 +1,7 @@
 import streamlit as st
 import requests
 
-st.image('/home/godfr/code/Godfred2024/TechMatch/images/logo-star.png',
+st.image('images/logo-star.png',
          caption = 'TechMatch',
          width=70)
 
