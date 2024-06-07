@@ -24,3 +24,21 @@ if Problem and button_pressed:
     response = response["tool"]
     final_text = "Your recommended tool is "+ response
     st.write(final_text)
+
+st.markdown('')
+st.markdown('')
+st.markdown('')
+st.markdown('')
+st.markdown('')
+st.markdown('')
+st.markdown('')
+st.markdown('')
+st.markdown('')
+st.markdown('')
+st.markdown('')
+st.markdown('')
+st.markdown('')
+st.markdown('')
+st.image('images/app_demo.png',
+         caption = 'recommended applications',
+         width=500)
