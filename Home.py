@@ -1,5 +1,6 @@
 import streamlit as st
 import requests
+import pandas as pd
 
 st.image('images/logo-star.png',
          caption = 'TechMatch',
@@ -19,8 +20,9 @@ st.markdown('')
 if user_search and button_pressed:
 #API interface
     response = requests.get(
-        #'http://localhost:8000/tech_api', #for testing
-        'https://docker-techmatch-davskncavq-ew.a.run.app/tech_api', #(for PRODUCTION)
+        #'http://localhost:8000/tech_api', #for DEVELOPMENT
+
+        'https://docker-techmatch-brf3bsqh7a-ew.a.run.app/tech_api', #(for PRODUCTION)
         params={'text': user_search},
     ).json()
 
@@ -34,11 +36,12 @@ if user_search and button_pressed:
 
     results = []
     for index, res in enumerate(response, start=1):
-        percentage = round(res[1] * 100, 2)
+        percentage = round(res[1]* 100,2)
         if percentage > 5:
             #st.write(f'{res[0]} - {percentage}%')
-            results.append({"Index" : index, "Tool": res[0], "Recommendation in %": percentage})
+            results.append({"Index" : index, "Tool": res[0], "Recommendation in %": "%.2f" % percentage})
 
     #Display results in a dataframe
     if results:
-        st.dataframe(results)
+        df = pd.DataFrame(results)
+        st.markdown(df.style.hide(axis="index").to_html(), unsafe_allow_html=True)
