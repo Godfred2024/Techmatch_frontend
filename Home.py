@@ -34,12 +34,20 @@ if user_search and button_pressed:
      #   if round(res[1]*100,2) > 5:
       #      st.write(f'{res[0]} - {round(res[1]*100,2)}%')
 
+    sum = 0
+    for index, res in enumerate(response, start=1):
+        percentage = round(res[1]* 100,2)
+        if percentage > 5:
+            sum += percentage
+
+
+
     results = []
     for index, res in enumerate(response, start=1):
         percentage = round(res[1]* 100,2)
         if percentage > 5:
             #st.write(f'{res[0]} - {percentage}%')
-            results.append({"Index" : index, "Tool": res[0], "Recommendation in %": "%.2f" % percentage})
+            results.append({"Index" : index, "Tool": res[0], "Recommendation in %": "%.2f" % (percentage/sum*100)})
 
     #Display results in a dataframe
     if results:
