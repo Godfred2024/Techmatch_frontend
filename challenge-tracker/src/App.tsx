@@ -56,7 +56,7 @@ export default function App() {
   });
   const [view, setView] = useState<View>('dashboard');
 
-  const { data, isLoading, setupChallenge, updateConfig, toggleHabit, updateNote, resetChallenge, getDayRecord, persist } = useChallenge();
+  const { data, isLoading, setupChallenge, updateConfig, toggleHabit, updateNote, addEvent, updateEvent, deleteEvent, resetChallenge, getDayRecord, persist } = useChallenge();
 
   useEffect(() => {
     localStorage.setItem('dark_mode', String(darkMode));
@@ -130,8 +130,12 @@ export default function App() {
             <CalendarView
               config={data.config}
               days={data.days}
+              events={data.events ?? []}
               onToggle={(date, habitId) => toggleHabit(date, habitId)}
               onNoteChange={(date, note) => updateNote(date, note)}
+              onAddEvent={addEvent}
+              onUpdateEvent={updateEvent}
+              onDeleteEvent={deleteEvent}
             />
           )}
           {view === 'progress' && (

@@ -20,9 +20,19 @@ export interface ChallengeConfig {
   habits: Habit[];
 }
 
+export interface CalendarEvent {
+  id: string;
+  date: string;
+  title: string;
+  icon: string;
+  color: string;
+  description?: string;
+}
+
 export interface ChallengeData {
   config: ChallengeConfig;
   days: Record<string, DayRecord>;
+  events: CalendarEvent[];
 }
 
 export interface ChallengeStats {

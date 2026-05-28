@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ChallengeConfig, ChallengeData, DayRecord, Habit } from '../types';
+import { CalendarEvent, ChallengeConfig, ChallengeData, DayRecord, Habit } from '../types';
 import { loadData, saveData } from '../utils/storage';
 
 export const DEFAULT_HABITS: Habit[] = [
@@ -14,12 +14,20 @@ export const DEFAULT_HABITS: Habit[] = [
   { id: 'no_alcohol', label: 'Aucun alcool', icon: '🚫', required: true },
 ];
 
+function genId(): string {
+  return Math.random().toString(36).slice(2, 10);
+}
+
 export function useChallenge() {
   const [data, setData] = useState<ChallengeData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    setData(loadData());
+    const loaded = loadData();
+    if (loaded && !loaded.events) {
+      loaded.events = [];
+    }
+    setData(loaded);
     setIsLoading(false);
   }, []);
 
@@ -29,7 +37,7 @@ export function useChallenge() {
   }, []);
 
   const setupChallenge = useCallback(
-    (config: ChallengeConfig) => persist({ config, days: {} }),
+    (config: ChallengeConfig) => persist({ config, days: {}, events: [] }),
     [persist]
   );
 
@@ -62,9 +70,42 @@ export function useChallenge() {
     [data, persist]
   );
 
+  const addEvent = useCallback(
+    (event: Omit<CalendarEvent, 'id'>) => {
+      if (!data) return;
+      const newEvent: CalendarEvent = { ...event, id: genId() };
+      persist({ ...data, events: [...(data.events ?? []), newEvent] });
+    },
+    [data, persist]
+  );
+
+  const updateEvent = useCallback(
+    (updated: CalendarEvent) => {
+      if (!data) return;
+      persist({
+        ...data,
+        events: (data.events ?? []).map(e => (e.id === updated.id ? updated : e)),
+      });
+    },
+    [data, persist]
+  );
+
+  const deleteEvent = useCallback(
+    (id: string) => {
+      if (!data) return;
+      persist({ ...data, events: (data.events ?? []).filter(e => e.id !== id) });
+    },
+    [data, persist]
+  );
+
+  const getEventsForDate = useCallback(
+    (date: string): CalendarEvent[] => (data?.events ?? []).filter(e => e.date === date),
+    [data]
+  );
+
   const resetChallenge = useCallback(() => {
     if (!data) return;
-    persist({ config: data.config, days: {} });
+    persist({ config: data.config, days: {}, events: data.events ?? [] });
   }, [data, persist]);
 
   const getDayRecord = useCallback(
@@ -79,6 +120,10 @@ export function useChallenge() {
     updateConfig,
     toggleHabit,
     updateNote,
+    addEvent,
+    updateEvent,
+    deleteEvent,
+    getEventsForDate,
     resetChallenge,
     getDayRecord,
     persist,

@@ -1,16 +1,21 @@
-import { useState } from 'react';;
-import { ChallengeConfig, DayRecord, DayStatus } from '../types';
+import { useState } from 'react';
+import { CalendarEvent, ChallengeConfig, DayRecord, DayStatus } from '../types';
 import { getDayStatus, getDayNumber, getTodayString } from '../utils/calculations';
 import { DailyChecklist } from './DailyChecklist';
+import { EventForm } from './EventForm';
 
 interface Props {
   config: ChallengeConfig;
   days: Record<string, DayRecord>;
+  events: CalendarEvent[];
   onToggle: (date: string, habitId: string) => void;
   onNoteChange: (date: string, note: string) => void;
+  onAddEvent: (event: Omit<CalendarEvent, 'id'>) => void;
+  onUpdateEvent: (event: CalendarEvent) => void;
+  onDeleteEvent: (id: string) => void;
 }
 
-const STATUS_STYLES: Record<DayStatus, string> = {
+const STATUS_BG: Record<DayStatus, string> = {
   complete: 'bg-emerald-500 text-white',
   partial: 'bg-amber-400 text-white',
   missed: 'bg-rose-400 text-white',
@@ -18,19 +23,17 @@ const STATUS_STYLES: Record<DayStatus, string> = {
   future: 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-600',
 };
 
-export function CalendarView({ config, days, onToggle, onNoteChange }: Props) {
+export function CalendarView({ config, days, events, onToggle, onNoteChange, onAddEvent, onUpdateEvent, onDeleteEvent }: Props) {
   const today = getTodayString();
   const [viewYear, setViewYear] = useState(new Date().getFullYear());
   const [viewMonth, setViewMonth] = useState(new Date().getMonth());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-
-  const startDate = new Date(config.startDate + 'T00:00:00');
-  const endDateObj = new Date(startDate);
-  endDateObj.setDate(endDateObj.getDate() + config.duration - 1);
+  const [showEventForm, setShowEventForm] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
 
   function getDaysInMonth(year: number, month: number): (string | null)[] {
     const firstDay = new Date(year, month, 1).getDay();
-    const monday0 = (firstDay + 6) % 7; // Monday = 0
+    const monday0 = (firstDay + 6) % 7;
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const cells: (string | null)[] = Array(monday0).fill(null);
     for (let d = 1; d <= daysInMonth; d++) {
@@ -43,46 +46,62 @@ export function CalendarView({ config, days, onToggle, onNoteChange }: Props) {
 
   const cells = getDaysInMonth(viewYear, viewMonth);
   const monthLabel = new Date(viewYear, viewMonth, 1).toLocaleDateString('fr-FR', {
-    month: 'long',
-    year: 'numeric',
+    month: 'long', year: 'numeric',
   });
 
   function prevMonth() {
     if (viewMonth === 0) { setViewMonth(11); setViewYear(v => v - 1); }
     else setViewMonth(m => m - 1);
   }
-
   function nextMonth() {
     if (viewMonth === 11) { setViewMonth(0); setViewYear(v => v + 1); }
     else setViewMonth(m => m + 1);
   }
 
+  function getEventsForDate(date: string) {
+    return events.filter(e => e.date === date);
+  }
+
   const selectedRecord = selectedDate
     ? (days[selectedDate] ?? { date: selectedDate, completedHabits: [], note: '' })
     : null;
-
   const dayNumForSelected = selectedDate ? getDayNumber(config.startDate, selectedDate) : 0;
+  const selectedEvents = selectedDate ? getEventsForDate(selectedDate) : [];
+
+  function closeDetail() {
+    setSelectedDate(null);
+    setShowEventForm(false);
+    setEditingEvent(null);
+  }
+
+  function handleSaveEvent(event: Omit<CalendarEvent, 'id'>) {
+    if (editingEvent) {
+      onUpdateEvent({ ...event, id: editingEvent.id });
+    } else {
+      onAddEvent(event);
+    }
+    setShowEventForm(false);
+    setEditingEvent(null);
+  }
+
+  function startEdit(event: CalendarEvent) {
+    setEditingEvent(event);
+    setShowEventForm(true);
+  }
 
   return (
     <div className="space-y-4 animate-fade-in">
-      {/* Month navigation */}
+      {/* Calendar card */}
       <div className="bg-white dark:bg-gray-900 rounded-3xl p-5 shadow-sm border border-gray-100 dark:border-gray-800">
+        {/* Month nav */}
         <div className="flex items-center justify-between mb-4">
-          <button
-            onClick={prevMonth}
-            className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-          >
+          <button onClick={prevMonth} className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
             <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          <h2 className="text-base font-bold text-gray-800 dark:text-gray-200 capitalize">
-            {monthLabel}
-          </h2>
-          <button
-            onClick={nextMonth}
-            className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-          >
+          <h2 className="text-base font-bold text-gray-800 dark:text-gray-200 capitalize">{monthLabel}</h2>
+          <button onClick={nextMonth} className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
             <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
             </svg>
@@ -92,13 +111,11 @@ export function CalendarView({ config, days, onToggle, onNoteChange }: Props) {
         {/* Day headers */}
         <div className="grid grid-cols-7 mb-2">
           {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((d, i) => (
-            <div key={i} className="text-center text-xs font-semibold text-gray-400 dark:text-gray-600 py-1">
-              {d}
-            </div>
+            <div key={i} className="text-center text-xs font-semibold text-gray-400 dark:text-gray-600 py-1">{d}</div>
           ))}
         </div>
 
-        {/* Calendar grid */}
+        {/* Grid */}
         <div className="grid grid-cols-7 gap-1">
           {cells.map((dateStr, idx) => {
             if (!dateStr) return <div key={idx} />;
@@ -108,30 +125,36 @@ export function CalendarView({ config, days, onToggle, onNoteChange }: Props) {
             const status = isInChallenge
               ? getDayStatus(dateStr, days[dateStr], config.habits, config.startDate, config.duration)
               : null;
-            const isToday = dateStr === today;
             const isSelected = dateStr === selectedDate;
+            const dayEvents = getEventsForDate(dateStr);
+            const hasEvents = dayEvents.length > 0;
 
             return (
               <button
                 key={idx}
-                onClick={() => {
-                  if (!isInChallenge) return;
-                  setSelectedDate(isSelected ? null : dateStr);
-                }}
-                disabled={!isInChallenge}
-                className={`aspect-square flex flex-col items-center justify-center rounded-xl text-xs font-semibold transition-all duration-150
-                  ${isInChallenge ? 'cursor-pointer' : 'cursor-default opacity-30'}
-                  ${status ? STATUS_STYLES[status] : 'text-gray-300 dark:text-gray-700'}
-                  ${isSelected ? 'ring-2 ring-indigo-400 ring-offset-1 dark:ring-offset-gray-900 scale-110' : ''}
-                  ${!status && isInChallenge ? 'bg-gray-50 dark:bg-gray-800/40' : ''}
+                onClick={() => setSelectedDate(isSelected ? null : dateStr)}
+                className={`relative aspect-square flex flex-col items-center justify-center rounded-xl text-xs font-semibold transition-all duration-150
+                  ${isInChallenge ? 'cursor-pointer' : 'cursor-default opacity-25'}
+                  ${status ? STATUS_BG[status] : 'text-gray-300 dark:text-gray-700'}
+                  ${isSelected ? 'ring-2 ring-indigo-400 ring-offset-1 dark:ring-offset-gray-900 scale-110 z-10' : ''}
+                  ${!status && isInChallenge ? 'bg-gray-50 dark:bg-gray-800/40 text-gray-600 dark:text-gray-400' : ''}
                 `}
               >
                 <span>{new Date(dateStr + 'T00:00:00').getDate()}</span>
                 {isInChallenge && status && status !== 'future' && (
-                  <span className="text-[8px] opacity-75">J{dayNum}</span>
+                  <span className="text-[8px] opacity-75 leading-none">J{dayNum}</span>
                 )}
-                {isToday && !isSelected && (
-                  <div className="absolute w-1 h-1 rounded-full bg-white/80 mt-4" />
+                {/* Event dots */}
+                {hasEvents && (
+                  <div className="absolute bottom-0.5 left-1/2 -translate-x-1/2 flex gap-0.5">
+                    {dayEvents.slice(0, 3).map(ev => (
+                      <div
+                        key={ev.id}
+                        className="w-1.5 h-1.5 rounded-full ring-1 ring-white/50"
+                        style={{ backgroundColor: ev.color }}
+                      />
+                    ))}
+                  </div>
                 )}
               </button>
             );
@@ -139,28 +162,35 @@ export function CalendarView({ config, days, onToggle, onNoteChange }: Props) {
         </div>
 
         {/* Legend */}
-        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-4 justify-center">
-          {[
+        <div className="flex flex-wrap gap-x-3 gap-y-1 mt-4 justify-center">
+          {([
             { status: 'complete' as DayStatus, label: 'Complet' },
             { status: 'partial' as DayStatus, label: 'Partiel' },
             { status: 'missed' as DayStatus, label: 'Manqué' },
             { status: 'current' as DayStatus, label: "Aujourd'hui" },
-          ].map(({ status, label }) => (
-            <div key={status} className="flex items-center gap-1.5">
-              <div className={`w-3 h-3 rounded-full ${STATUS_STYLES[status]}`} />
-              <span className="text-xs text-gray-500 dark:text-gray-500">{label}</span>
+          ] as const).map(({ status, label }) => (
+            <div key={status} className="flex items-center gap-1">
+              <div className={`w-2.5 h-2.5 rounded-full ${STATUS_BG[status]}`} />
+              <span className="text-[11px] text-gray-400 dark:text-gray-600">{label}</span>
             </div>
           ))}
+          <div className="flex items-center gap-1">
+            <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+            <span className="text-[11px] text-gray-400 dark:text-gray-600">Événement</span>
+          </div>
         </div>
       </div>
 
-      {/* Selected day detail */}
-      {selectedDate && selectedRecord && (
+      {/* Day detail panel */}
+      {selectedDate && (
         <div className="bg-white dark:bg-gray-900 rounded-3xl p-5 shadow-sm border border-gray-100 dark:border-gray-800 animate-slide-up">
+          {/* Header */}
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="text-base font-bold text-gray-800 dark:text-gray-200">
-                Jour {dayNumForSelected}
+                {getDayNumber(config.startDate, selectedDate) >= 1 && getDayNumber(config.startDate, selectedDate) <= config.duration
+                  ? `Jour ${dayNumForSelected}`
+                  : 'Hors challenge'}
               </h3>
               <p className="text-xs text-gray-400 dark:text-gray-600">
                 {new Date(selectedDate + 'T00:00:00').toLocaleDateString('fr-FR', {
@@ -168,23 +198,106 @@ export function CalendarView({ config, days, onToggle, onNoteChange }: Props) {
                 })}
               </p>
             </div>
-            <button
-              onClick={() => setSelectedDate(null)}
-              className="p-1.5 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-            >
+            <button onClick={closeDetail} className="p-1.5 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
               <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           </div>
-          <DailyChecklist
-            date={selectedDate}
-            record={selectedRecord}
-            habits={config.habits}
-            onToggle={habitId => onToggle(selectedDate, habitId)}
-            onNoteChange={note => onNoteChange(selectedDate, note)}
-            readonly={selectedDate > getTodayString()}
-          />
+
+          {/* Events section */}
+          <div className="mb-5">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                Événements ({selectedEvents.length})
+              </p>
+              {!showEventForm && (
+                <button
+                  onClick={() => { setShowEventForm(true); setEditingEvent(null); }}
+                  className="flex items-center gap-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 transition-colors"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                  </svg>
+                  Ajouter
+                </button>
+              )}
+            </div>
+
+            {/* Event form */}
+            {showEventForm && (
+              <div className="mb-3 p-3 rounded-2xl bg-gray-50 dark:bg-gray-800/60 border border-gray-100 dark:border-gray-700">
+                <EventForm
+                  date={selectedDate}
+                  initial={editingEvent ?? undefined}
+                  onSave={handleSaveEvent}
+                  onCancel={() => { setShowEventForm(false); setEditingEvent(null); }}
+                />
+              </div>
+            )}
+
+            {/* Event list */}
+            {selectedEvents.length === 0 && !showEventForm && (
+              <p className="text-xs text-gray-300 dark:text-gray-600 italic py-2">
+                Aucun événement — clique sur "Ajouter" pour en créer un.
+              </p>
+            )}
+
+            <div className="space-y-2">
+              {selectedEvents.map(event => (
+                <div
+                  key={event.id}
+                  className="flex items-start gap-3 p-3 rounded-2xl border-l-4 bg-gray-50 dark:bg-gray-800/60"
+                  style={{ borderLeftColor: event.color }}
+                >
+                  <span className="text-xl flex-shrink-0 mt-0.5">{event.icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 truncate">{event.title}</p>
+                    {event.description && (
+                      <p className="text-xs text-gray-500 dark:text-gray-500 mt-0.5">{event.description}</p>
+                    )}
+                  </div>
+                  <div className="flex gap-1 flex-shrink-0">
+                    <button
+                      onClick={() => startEdit(event)}
+                      className="p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      <svg className="w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => onDeleteEvent(event.id)}
+                      className="p-1.5 rounded-lg hover:bg-rose-100 dark:hover:bg-rose-900/30 transition-colors"
+                    >
+                      <svg className="w-3.5 h-3.5 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Checklist (only for challenge days) */}
+          {selectedRecord && dayNumForSelected >= 1 && dayNumForSelected <= config.duration && (
+            <>
+              <div className="border-t border-gray-100 dark:border-gray-800 pt-4">
+                <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
+                  Habitudes du jour
+                </p>
+                <DailyChecklist
+                  date={selectedDate}
+                  record={selectedRecord}
+                  habits={config.habits}
+                  onToggle={habitId => onToggle(selectedDate, habitId)}
+                  onNoteChange={note => onNoteChange(selectedDate, note)}
+                  readonly={selectedDate > today}
+                />
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>
