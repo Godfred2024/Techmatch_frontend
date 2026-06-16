@@ -1,7 +1,7 @@
-import { useState } from 'react';;
-import { ChallengeConfig, Habit } from '../types';
+import { useState } from 'react';
+import { ChallengeConfig, ChallengeData, Habit } from '../types';
 import { exportData, importFromFile } from '../utils/storage';
-import { ChallengeData } from '../types';
+import { getTodayString } from '../utils/calculations';
 
 interface Props {
   config: ChallengeConfig;
@@ -35,13 +35,26 @@ export function ChallengeSettings({ config, data, onUpdateConfig, onReset, onImp
 
   function addHabit() {
     if (!newHabitLabel.trim()) return;
-    setHabits(h => [...h, { id: generateId(), label: newHabitLabel.trim(), icon: newHabitIcon, required: true }]);
+    const today = getTodayString();
+    setHabits(h => [...h, {
+      id: generateId(),
+      label: newHabitLabel.trim(),
+      icon: newHabitIcon,
+      required: true,
+      createdAt: today,
+      deactivatedAt: null,
+    }]);
     setNewHabitLabel('');
     setNewHabitIcon('⭐');
   }
 
-  function removeHabit(id: string) {
-    setHabits(h => h.filter(hab => hab.id !== id));
+  function deactivateHabit(id: string) {
+    const today = getTodayString();
+    setHabits(h => h.map(hab => hab.id === id ? { ...hab, deactivatedAt: today } : hab));
+  }
+
+  function reactivateHabit(id: string) {
+    setHabits(h => h.map(hab => hab.id === id ? { ...hab, deactivatedAt: null } : hab));
   }
 
   function toggleRequired(id: string) {
@@ -128,40 +141,73 @@ export function ChallengeSettings({ config, data, onUpdateConfig, onReset, onImp
         <h2 className="text-base font-bold text-gray-800 dark:text-gray-200 mb-4">📋 Habitudes</h2>
 
         <div className="space-y-2 mb-4">
-          {habits.map((habit, idx) => (
-            <div key={habit.id} className="flex items-center gap-2 p-2.5 rounded-xl bg-gray-50 dark:bg-gray-800/60">
-              <span className="text-lg">{habit.icon}</span>
-              <span className="flex-1 text-sm text-gray-700 dark:text-gray-300 truncate">{habit.label}</span>
-              <button
-                onClick={() => toggleRequired(habit.id)}
-                title={habit.required ? 'Obligatoire' : 'Optionnel'}
-                className={`text-xs px-2 py-0.5 rounded-full font-semibold transition-colors
-                  ${habit.required
-                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400'
-                    : 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400'}`}
-              >
-                {habit.required ? 'req.' : 'opt.'}
-              </button>
-              <button onClick={() => moveHabit(idx, -1)} disabled={idx === 0}
-                className="p-1 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-20 transition-colors">
-                <svg className="w-3 h-3 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
-                </svg>
-              </button>
-              <button onClick={() => moveHabit(idx, 1)} disabled={idx === habits.length - 1}
-                className="p-1 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-20 transition-colors">
-                <svg className="w-3 h-3 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              <button onClick={() => removeHabit(habit.id)}
-                className="p-1 rounded-lg hover:bg-rose-100 dark:hover:bg-rose-900/30 transition-colors">
-                <svg className="w-3.5 h-3.5 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-          ))}
+          {habits.map((habit, idx) => {
+            const isDeactivated = !!habit.deactivatedAt;
+            return (
+              <div key={habit.id} className={`rounded-xl transition-all ${
+                isDeactivated ? 'bg-gray-50/50 dark:bg-gray-800/20 opacity-60' : 'bg-gray-50 dark:bg-gray-800/60'
+              }`}>
+                <div className="flex items-center gap-2 p-2.5">
+                  <span className={`text-lg ${isDeactivated ? 'grayscale' : ''}`}>{habit.icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <span className={`text-sm text-gray-700 dark:text-gray-300 truncate block ${
+                      isDeactivated ? 'line-through text-gray-400' : ''
+                    }`}>{habit.label}</span>
+                    {habit.createdAt && (
+                      <span className="text-[9px] text-gray-400 dark:text-gray-600">
+                        Depuis le {new Date(habit.createdAt + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        {isDeactivated && habit.deactivatedAt && (
+                          <> · Désactivé le {new Date(habit.deactivatedAt + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</>
+                        )}
+                      </span>
+                    )}
+                  </div>
+
+                  {isDeactivated ? (
+                    <button
+                      onClick={() => reactivateHabit(habit.id)}
+                      className="text-xs px-2 py-0.5 rounded-full font-semibold bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-400 transition-colors"
+                    >
+                      Réactiver
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => toggleRequired(habit.id)}
+                        title={habit.required ? 'Obligatoire' : 'Optionnel'}
+                        className={`text-xs px-2 py-0.5 rounded-full font-semibold transition-colors flex-shrink-0
+                          ${habit.required
+                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400'
+                            : 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400'}`}
+                      >
+                        {habit.required ? 'req.' : 'opt.'}
+                      </button>
+                      <button onClick={() => moveHabit(idx, -1)} disabled={idx === 0}
+                        className="p-1 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-20 transition-colors flex-shrink-0">
+                        <svg className="w-3 h-3 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                        </svg>
+                      </button>
+                      <button onClick={() => moveHabit(idx, 1)} disabled={idx === habits.length - 1}
+                        className="p-1 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-20 transition-colors flex-shrink-0">
+                        <svg className="w-3 h-3 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => deactivateHabit(habit.id)}
+                        title="Désactiver cette habitude"
+                        className="p-1 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors flex-shrink-0">
+                        <svg className="w-3.5 h-3.5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                        </svg>
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
 
         {/* Add habit */}

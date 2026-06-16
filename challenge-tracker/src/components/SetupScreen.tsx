@@ -17,7 +17,8 @@ export function SetupScreen({ onSetup }: Props) {
   function handleStart() {
     const parsed = parseInt(duration);
     if (!name.trim() || isNaN(parsed) || parsed < 1 || !startDate) return;
-    onSetup({ name: name.trim(), startDate, duration: parsed, habits });
+    const stamped = habits.map(h => ({ ...h, createdAt: startDate, deactivatedAt: null }));
+    onSetup({ name: name.trim(), startDate, duration: parsed, habits: stamped });
   }
 
   return (

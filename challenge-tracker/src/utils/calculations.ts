@@ -15,14 +15,32 @@ export function getDayNumber(startDate: string, date: string): number {
   return diff + 1;
 }
 
+export function getEndDate(startDate: string, duration: number): string {
+  const d = new Date(startDate + 'T00:00:00');
+  d.setDate(d.getDate() + duration - 1);
+  return d.toISOString().split('T')[0];
+}
+
+// Returns only habits that were active on a given date (respects createdAt / deactivatedAt).
+// Habits without createdAt are treated as always active (backward compatibility).
+export function getActiveHabitsForDate(habits: Habit[], date: string): Habit[] {
+  return habits.filter(h => {
+    if (h.createdAt && h.createdAt > date) return false;
+    if (h.deactivatedAt && h.deactivatedAt <= date) return false;
+    return true;
+  });
+}
+
 function isComplete(record: DayRecord | undefined, habits: Habit[]): boolean {
   if (!record) return false;
   const required = habits.filter(h => h.required);
+  if (required.length === 0) return false;
   return required.every(h => record.completedHabits.includes(h.id));
 }
 
-function hasAnyHabit(record: DayRecord | undefined): boolean {
-  return !!(record && record.completedHabits.length > 0);
+function hasAnyHabit(record: DayRecord | undefined, activeHabits: Habit[]): boolean {
+  if (!record || record.completedHabits.length === 0) return false;
+  return activeHabits.some(h => record.completedHabits.includes(h.id));
 }
 
 export function getDayStatus(
@@ -38,14 +56,16 @@ export function getDayStatus(
   if (dayNum < 1 || dayNum > duration) return 'future';
   if (date > today) return 'future';
 
+  const active = getActiveHabitsForDate(habits, date);
+
   if (date === today) {
-    if (isComplete(record, habits)) return 'complete';
-    if (hasAnyHabit(record)) return 'partial';
+    if (isComplete(record, active)) return 'complete';
+    if (hasAnyHabit(record, active)) return 'partial';
     return 'current';
   }
 
-  if (isComplete(record, habits)) return 'complete';
-  if (hasAnyHabit(record)) return 'partial';
+  if (isComplete(record, active)) return 'complete';
+  if (hasAnyHabit(record, active)) return 'partial';
   return 'missed';
 }
 
@@ -65,11 +85,7 @@ export function iterateDays(startDate: string, endDate: string): string[] {
 export function calculateStats(data: ChallengeData): ChallengeStats {
   const { config, days } = data;
   const today = getTodayString();
-
-  const endDateObj = new Date(config.startDate + 'T00:00:00');
-  endDateObj.setDate(endDateObj.getDate() + config.duration - 1);
-  const endDate = endDateObj.toISOString().split('T')[0];
-
+  const endDate = getEndDate(config.startDate, config.duration);
   const allPastDates = iterateDays(config.startDate, today < endDate ? today : endDate);
 
   let completed = 0;

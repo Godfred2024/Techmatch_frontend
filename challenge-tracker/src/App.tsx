@@ -139,7 +139,7 @@ export default function App() {
             />
           )}
           {view === 'progress' && (
-            <ProgressStats stats={stats} challengeName={data.config.name} />
+            <ProgressStats data={data} />
           )}
           {view === 'settings' && (
             <ChallengeSettings

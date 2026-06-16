@@ -3,6 +3,8 @@ export interface Habit {
   label: string;
   icon: string;
   required: boolean;
+  createdAt?: string;        // ISO date — absent means "active since challenge start"
+  deactivatedAt?: string | null;
 }
 
 export type DayStatus = 'complete' | 'partial' | 'missed' | 'future' | 'current';
