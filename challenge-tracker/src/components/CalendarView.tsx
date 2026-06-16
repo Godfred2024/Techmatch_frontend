@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { CalendarEvent, ChallengeConfig, DayRecord, DayStatus } from '../types';
+import { CalendarEvent, ChallengeConfig, DayRecord } from '../types';
 import { getDayStatus, getDayNumber, getTodayString } from '../utils/calculations';
 import { DailyChecklist } from './DailyChecklist';
 import { EventForm } from './EventForm';
+import { CalendarDayCell, habitColor } from './CalendarDayCell';
 
 interface Props {
   config: ChallengeConfig;
@@ -14,14 +15,6 @@ interface Props {
   onUpdateEvent: (event: CalendarEvent) => void;
   onDeleteEvent: (id: string) => void;
 }
-
-const STATUS_BG: Record<DayStatus, string> = {
-  complete: 'bg-emerald-500 text-white',
-  partial: 'bg-amber-400 text-white',
-  missed: 'bg-rose-400 text-white',
-  current: 'bg-indigo-500 text-white ring-2 ring-indigo-300 ring-offset-1 dark:ring-offset-gray-900',
-  future: 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-600',
-};
 
 export function CalendarView({ config, days, events, onToggle, onNoteChange, onAddEvent, onUpdateEvent, onDeleteEvent }: Props) {
   const today = getTodayString();
@@ -89,12 +82,15 @@ export function CalendarView({ config, days, events, onToggle, onNoteChange, onA
     setShowEventForm(true);
   }
 
+  // Max 4 habits shown in dots per cell — legend shows what each color means
+  const legendHabits = config.habits.slice(0, 4);
+
   return (
     <div className="space-y-4 animate-fade-in">
       {/* Calendar card */}
-      <div className="bg-white dark:bg-gray-900 rounded-3xl p-5 shadow-sm border border-gray-100 dark:border-gray-800">
+      <div className="bg-white dark:bg-gray-900 rounded-3xl p-4 shadow-sm border border-gray-100 dark:border-gray-800">
         {/* Month nav */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-3">
           <button onClick={prevMonth} className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
             <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
@@ -108,15 +104,15 @@ export function CalendarView({ config, days, events, onToggle, onNoteChange, onA
           </button>
         </div>
 
-        {/* Day headers */}
-        <div className="grid grid-cols-7 mb-2">
+        {/* Day-of-week headers */}
+        <div className="grid grid-cols-7 mb-1">
           {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((d, i) => (
-            <div key={i} className="text-center text-xs font-semibold text-gray-400 dark:text-gray-600 py-1">{d}</div>
+            <div key={i} className="text-center text-[10px] font-bold text-gray-400 dark:text-gray-600 py-1">{d}</div>
           ))}
         </div>
 
-        {/* Grid */}
-        <div className="grid grid-cols-7 gap-1">
+        {/* Day grid */}
+        <div className="grid grid-cols-7 gap-0.5">
           {cells.map((dateStr, idx) => {
             if (!dateStr) return <div key={idx} />;
 
@@ -125,58 +121,64 @@ export function CalendarView({ config, days, events, onToggle, onNoteChange, onA
             const status = isInChallenge
               ? getDayStatus(dateStr, days[dateStr], config.habits, config.startDate, config.duration)
               : null;
-            const isSelected = dateStr === selectedDate;
-            const dayEvents = getEventsForDate(dateStr);
-            const hasEvents = dayEvents.length > 0;
 
             return (
-              <button
+              <CalendarDayCell
                 key={idx}
-                onClick={() => setSelectedDate(isSelected ? null : dateStr)}
-                className={`relative aspect-square flex flex-col items-center justify-center rounded-xl text-xs font-semibold transition-all duration-150
-                  ${isInChallenge ? 'cursor-pointer' : 'cursor-default opacity-25'}
-                  ${status ? STATUS_BG[status] : 'text-gray-300 dark:text-gray-700'}
-                  ${isSelected ? 'ring-2 ring-indigo-400 ring-offset-1 dark:ring-offset-gray-900 scale-110 z-10' : ''}
-                  ${!status && isInChallenge ? 'bg-gray-50 dark:bg-gray-800/40 text-gray-600 dark:text-gray-400' : ''}
-                `}
-              >
-                <span>{new Date(dateStr + 'T00:00:00').getDate()}</span>
-                {isInChallenge && status && status !== 'future' && (
-                  <span className="text-[8px] opacity-75 leading-none">J{dayNum}</span>
-                )}
-                {/* Event dots */}
-                {hasEvents && (
-                  <div className="absolute bottom-0.5 left-1/2 -translate-x-1/2 flex gap-0.5">
-                    {dayEvents.slice(0, 3).map(ev => (
-                      <div
-                        key={ev.id}
-                        className="w-1.5 h-1.5 rounded-full ring-1 ring-white/50"
-                        style={{ backgroundColor: ev.color }}
-                      />
-                    ))}
-                  </div>
-                )}
-              </button>
+                dateStr={dateStr}
+                isInChallenge={isInChallenge}
+                status={status}
+                record={days[dateStr]}
+                habits={config.habits}
+                events={getEventsForDate(dateStr)}
+                isSelected={dateStr === selectedDate}
+                onClick={() => setSelectedDate(dateStr === selectedDate ? null : dateStr)}
+              />
             );
           })}
         </div>
 
-        {/* Legend */}
-        <div className="flex flex-wrap gap-x-3 gap-y-1 mt-4 justify-center">
+        {/* Habit color legend */}
+        {legendHabits.length > 0 && (
+          <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800">
+            <p className="text-[9px] font-bold text-gray-400 dark:text-gray-600 uppercase tracking-wider mb-2">
+              Habitudes (points colorés)
+            </p>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+              {config.habits.slice(0, 8).map(h => (
+                <div key={h.id} className="flex items-center gap-1.5 min-w-0">
+                  <div
+                    className="w-2 h-2 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: habitColor(h.id) }}
+                  />
+                  <span className="text-[10px] text-gray-500 dark:text-gray-400 truncate">{h.icon} {h.label}</span>
+                </div>
+              ))}
+            </div>
+            {config.habits.length > 8 && (
+              <p className="text-[10px] text-gray-400 dark:text-gray-600 mt-1">
+                +{config.habits.length - 8} autres habitudes
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Status legend */}
+        <div className="flex flex-wrap gap-x-3 gap-y-1 mt-3 justify-center">
           {([
-            { status: 'complete' as DayStatus, label: 'Complet' },
-            { status: 'partial' as DayStatus, label: 'Partiel' },
-            { status: 'missed' as DayStatus, label: 'Manqué' },
-            { status: 'current' as DayStatus, label: "Aujourd'hui" },
-          ] as const).map(({ status, label }) => (
-            <div key={status} className="flex items-center gap-1">
-              <div className={`w-2.5 h-2.5 rounded-full ${STATUS_BG[status]}`} />
-              <span className="text-[11px] text-gray-400 dark:text-gray-600">{label}</span>
+            { color: '#10b981', label: 'Complet' },
+            { color: '#f59e0b', label: 'Partiel' },
+            { color: '#f43f5e', label: 'Manqué' },
+            { color: '#6366f1', label: "Aujourd'hui" },
+          ] as const).map(({ color, label }) => (
+            <div key={label} className="flex items-center gap-1">
+              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
+              <span className="text-[10px] text-gray-400 dark:text-gray-600">{label}</span>
             </div>
           ))}
           <div className="flex items-center gap-1">
-            <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-            <span className="text-[11px] text-gray-400 dark:text-gray-600">Événement</span>
+            <div className="w-2 h-2 rounded-full bg-blue-500" />
+            <span className="text-[10px] text-gray-400 dark:text-gray-600">Événement</span>
           </div>
         </div>
       </div>
@@ -184,11 +186,10 @@ export function CalendarView({ config, days, events, onToggle, onNoteChange, onA
       {/* Day detail panel */}
       {selectedDate && (
         <div className="bg-white dark:bg-gray-900 rounded-3xl p-5 shadow-sm border border-gray-100 dark:border-gray-800 animate-slide-up">
-          {/* Header */}
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="text-base font-bold text-gray-800 dark:text-gray-200">
-                {getDayNumber(config.startDate, selectedDate) >= 1 && getDayNumber(config.startDate, selectedDate) <= config.duration
+                {dayNumForSelected >= 1 && dayNumForSelected <= config.duration
                   ? `Jour ${dayNumForSelected}`
                   : 'Hors challenge'}
               </h3>
@@ -224,7 +225,6 @@ export function CalendarView({ config, days, events, onToggle, onNoteChange, onA
               )}
             </div>
 
-            {/* Event form */}
             {showEventForm && (
               <div className="mb-3 p-3 rounded-2xl bg-gray-50 dark:bg-gray-800/60 border border-gray-100 dark:border-gray-700">
                 <EventForm
@@ -236,7 +236,6 @@ export function CalendarView({ config, days, events, onToggle, onNoteChange, onA
               </div>
             )}
 
-            {/* Event list */}
             {selectedEvents.length === 0 && !showEventForm && (
               <p className="text-xs text-gray-300 dark:text-gray-600 italic py-2">
                 Aucun événement — clique sur "Ajouter" pour en créer un.
@@ -280,23 +279,21 @@ export function CalendarView({ config, days, events, onToggle, onNoteChange, onA
             </div>
           </div>
 
-          {/* Checklist (only for challenge days) */}
+          {/* Habit checklist (challenge days only) */}
           {selectedRecord && dayNumForSelected >= 1 && dayNumForSelected <= config.duration && (
-            <>
-              <div className="border-t border-gray-100 dark:border-gray-800 pt-4">
-                <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
-                  Habitudes du jour
-                </p>
-                <DailyChecklist
-                  date={selectedDate}
-                  record={selectedRecord}
-                  habits={config.habits}
-                  onToggle={habitId => onToggle(selectedDate, habitId)}
-                  onNoteChange={note => onNoteChange(selectedDate, note)}
-                  readonly={selectedDate > today}
-                />
-              </div>
-            </>
+            <div className="border-t border-gray-100 dark:border-gray-800 pt-4">
+              <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
+                Habitudes du jour
+              </p>
+              <DailyChecklist
+                date={selectedDate}
+                record={selectedRecord}
+                habits={config.habits}
+                onToggle={habitId => onToggle(selectedDate, habitId)}
+                onNoteChange={note => onNoteChange(selectedDate, note)}
+                readonly={selectedDate > today}
+              />
+            </div>
           )}
         </div>
       )}
