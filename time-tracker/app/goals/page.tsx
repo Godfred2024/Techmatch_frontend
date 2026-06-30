@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Edit2 } from "lucide-react";
 
 import { useStore } from "@/lib/store";
 import { type Goal, type Frequency } from "@/lib/types";
@@ -13,23 +13,28 @@ import { Modal } from "@/components/ui/modal";
 import { ProgressRing } from "@/components/ui/progress-ring";
 
 const FREQ_OPTIONS = [
-  { value: "daily", label: "Par jour" },
-  { value: "weekly", label: "Par semaine" },
+  { value: "daily",   label: "Par jour" },
+  { value: "weekly",  label: "Par semaine" },
   { value: "monthly", label: "Par mois" },
-  { value: "yearly", label: "Par année" },
+  { value: "yearly",  label: "Par an" },
 ];
 
 const FREQ_LABELS: Record<Frequency, string> = {
-  daily: "jour",
-  weekly: "semaine",
+  daily:   "jour",
+  weekly:  "semaine",
   monthly: "mois",
-  yearly: "an",
+  yearly:  "an",
 };
 
 export default function GoalsPage() {
-  const { activities, goals, addGoal, deleteGoal, getGoalProgress, getActivityMinutes } = useStore();
+  const {
+    activities, goals,
+    addGoal, updateGoal, deleteGoal,
+    getGoalProgress, getActivityMinutes,
+  } = useStore();
 
   const [showModal, setShowModal] = useState(false);
+  const [editGoalId, setEditGoalId] = useState<string | null>(null);
   const [activityId, setActivityId] = useState("");
   const [targetHours, setTargetHours] = useState("");
   const [frequency, setFrequency] = useState<Frequency>("weekly");
@@ -39,6 +44,7 @@ export default function GoalsPage() {
 
   function openCreate() {
     if (activeActivities.length === 0) return;
+    setEditGoalId(null);
     setActivityId(activeActivities[0].id);
     setTargetHours("");
     setFrequency("weekly");
@@ -46,11 +52,25 @@ export default function GoalsPage() {
     setShowModal(true);
   }
 
+  function openEdit(goal: Goal) {
+    setEditGoalId(goal.id);
+    setActivityId(goal.activityId);
+    setTargetHours(goal.targetHours.toString());
+    setFrequency(goal.frequency);
+    setError("");
+    setShowModal(true);
+  }
+
   function handleSave() {
     const hours = parseFloat(targetHours);
-    if (!activityId) { setError("Choisissez une activité"); return; }
-    if (isNaN(hours) || hours <= 0) { setError("Entrez un objectif valide (heures > 0)"); return; }
-    addGoal({ activityId, targetHours: hours, frequency });
+    if (!activityId)         { setError("Choisissez une activité"); return; }
+    if (isNaN(hours) || hours <= 0) { setError("Entrez un objectif valide (> 0)"); return; }
+
+    if (editGoalId) {
+      updateGoal(editGoalId, { activityId, targetHours: hours, frequency });
+    } else {
+      addGoal({ activityId, targetHours: hours, frequency });
+    }
     setShowModal(false);
   }
 
@@ -61,10 +81,15 @@ export default function GoalsPage() {
       progress: getGoalProgress(g.id),
       achievedMins: getActivityMinutes(g.activityId, g.frequency),
     }))
-    .filter((x) => x.activity);
+    .filter((x) => x.activity) as Array<{
+      goal: Goal;
+      activity: NonNullable<ReturnType<typeof activities.find>>;
+      progress: number;
+      achievedMins: number;
+    }>;
 
   const completedGoals = enrichedGoals.filter((g) => g.progress >= 100);
-  const ongoingGoals = enrichedGoals.filter((g) => g.progress < 100);
+  const ongoingGoals   = enrichedGoals.filter((g) => g.progress < 100);
 
   return (
     <div className="px-4 pt-12 pb-4 space-y-5 animate-fade-in">
@@ -81,7 +106,7 @@ export default function GoalsPage() {
         </Button>
       </div>
 
-      {/* Ongoing goals */}
+      {/* Ongoing */}
       {ongoingGoals.length > 0 && (
         <section>
           <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">
@@ -92,11 +117,12 @@ export default function GoalsPage() {
               <GoalDetailCard
                 key={goal.id}
                 goal={goal}
-                activityName={activity!.name}
-                activityIcon={activity!.icon}
-                activityColor={activity!.color}
+                activityName={activity.name}
+                activityIcon={activity.icon}
+                activityColor={activity.color}
                 progress={progress}
                 achievedMins={achievedMins}
+                onEdit={() => openEdit(goal)}
                 onDelete={() => deleteGoal(goal.id)}
               />
             ))}
@@ -104,7 +130,7 @@ export default function GoalsPage() {
         </section>
       )}
 
-      {/* Completed goals */}
+      {/* Completed */}
       {completedGoals.length > 0 && (
         <section>
           <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">
@@ -115,11 +141,12 @@ export default function GoalsPage() {
               <GoalDetailCard
                 key={goal.id}
                 goal={goal}
-                activityName={activity!.name}
-                activityIcon={activity!.icon}
-                activityColor={activity!.color}
+                activityName={activity.name}
+                activityIcon={activity.icon}
+                activityColor={activity.color}
                 progress={progress}
                 achievedMins={achievedMins}
+                onEdit={() => openEdit(goal)}
                 onDelete={() => deleteGoal(goal.id)}
                 completed
               />
@@ -134,7 +161,7 @@ export default function GoalsPage() {
           <p className="text-5xl">🎯</p>
           <p className="font-medium text-gray-700">Aucun objectif défini</p>
           <p className="text-sm text-gray-400 max-w-xs mx-auto">
-            Définissez des objectifs pour mesurer vos progrès et vous motiver
+            Définissez des objectifs pour mesurer vos progrès
           </p>
           {activeActivities.length > 0 ? (
             <Button onClick={openCreate}>Créer un objectif</Button>
@@ -144,8 +171,12 @@ export default function GoalsPage() {
         </div>
       )}
 
-      {/* Modal */}
-      <Modal open={showModal} onClose={() => setShowModal(false)} title="Nouvel objectif">
+      {/* Modal create / edit */}
+      <Modal
+        open={showModal}
+        onClose={() => setShowModal(false)}
+        title={editGoalId ? "Modifier l'objectif" : "Nouvel objectif"}
+      >
         <div className="space-y-4">
           <Select
             label="Activité"
@@ -173,11 +204,12 @@ export default function GoalsPage() {
             />
           </div>
 
-          {/* Preview */}
           {targetHours && parseFloat(targetHours) > 0 && (
             <div className="p-3 bg-gray-50 rounded-xl text-sm text-gray-600 text-center">
               {parseFloat(targetHours)}h de{" "}
-              <strong>{activeActivities.find((a) => a.id === activityId)?.name || "..."}</strong>{" "}
+              <strong>
+                {activeActivities.find((a) => a.id === activityId)?.name || "..."}
+              </strong>{" "}
               par {FREQ_LABELS[frequency]}
             </div>
           )}
@@ -189,7 +221,7 @@ export default function GoalsPage() {
               Annuler
             </Button>
             <Button className="flex-1" onClick={handleSave}>
-              Créer
+              {editGoalId ? "Enregistrer" : "Créer"}
             </Button>
           </div>
         </div>
@@ -199,14 +231,8 @@ export default function GoalsPage() {
 }
 
 function GoalDetailCard({
-  goal,
-  activityName,
-  activityIcon,
-  activityColor,
-  progress,
-  achievedMins,
-  onDelete,
-  completed = false,
+  goal, activityName, activityIcon, activityColor,
+  progress, achievedMins, onEdit, onDelete, completed = false,
 }: {
   goal: Goal;
   activityName: string;
@@ -214,6 +240,7 @@ function GoalDetailCard({
   activityColor: string;
   progress: number;
   achievedMins: number;
+  onEdit: () => void;
   onDelete: () => void;
   completed?: boolean;
 }) {
@@ -235,7 +262,7 @@ function GoalDetailCard({
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-gray-900">{activityName}</p>
           <p className="text-xs text-gray-400 mt-0.5">
-            Objectif : {goal.targetHours}h / {FREQ_LABELS[goal.frequency]}
+            {goal.targetHours}h / {FREQ_LABELS[goal.frequency]}
           </p>
           <div className="flex items-center gap-2 mt-2">
             <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
@@ -258,9 +285,14 @@ function GoalDetailCard({
           )}
         </div>
 
-        <Button size="icon-sm" variant="ghost" onClick={onDelete} className="text-gray-300 hover:text-red-500 shrink-0">
-          <Trash2 size={14} />
-        </Button>
+        <div className="flex flex-col gap-1 shrink-0">
+          <Button size="icon-sm" variant="ghost" onClick={onEdit}>
+            <Edit2 size={14} />
+          </Button>
+          <Button size="icon-sm" variant="ghost" className="text-gray-300 hover:text-red-500" onClick={onDelete}>
+            <Trash2 size={14} />
+          </Button>
+        </div>
       </div>
     </Card>
   );

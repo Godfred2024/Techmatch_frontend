@@ -7,13 +7,22 @@ import {
   type TimeEntry,
   type Goal,
   type Frequency,
+  type CustomCategory,
+  DEFAULT_CATEGORIES,
 } from "./types";
-import { generateId, today, getDateRange, filterEntriesByDateRange, minutesToHours } from "./utils";
+import {
+  generateId,
+  today,
+  getDateRange,
+  filterEntriesByDateRange,
+  minutesToHours,
+} from "./utils";
 
 interface AppState {
   activities: Activity[];
   timeEntries: TimeEntry[];
   goals: Goal[];
+  categories: CustomCategory[];
 
   // Activity actions
   addActivity: (data: Omit<Activity, "id" | "createdAt">) => string;
@@ -26,9 +35,14 @@ interface AppState {
   deleteTimeEntry: (id: string) => void;
 
   // Goal actions
-  addGoal: (data: Omit<Goal, "id" | "createdAt">) => void;
+  addGoal: (data: Omit<Goal, "id" | "createdAt">) => string;
   updateGoal: (id: string, data: Partial<Goal>) => void;
   deleteGoal: (id: string) => void;
+
+  // Category actions
+  addCategory: (data: Omit<CustomCategory, "id" | "isDefault">) => string;
+  updateCategory: (id: string, data: Partial<Omit<CustomCategory, "id" | "isDefault">>) => void;
+  deleteCategory: (id: string) => void;
 
   // Computed
   getTodayMinutes: () => number;
@@ -36,6 +50,7 @@ interface AppState {
   getMonthMinutes: () => number;
   getActivityMinutes: (activityId: string, frequency: Frequency) => number;
   getGoalProgress: (goalId: string) => number;
+  getCategoryById: (id: string) => CustomCategory | undefined;
 }
 
 export const useStore = create<AppState>()(
@@ -44,20 +59,66 @@ export const useStore = create<AppState>()(
       activities: [],
       timeEntries: [],
       goals: [],
+      categories: DEFAULT_CATEGORIES,
 
       addActivity: (data) => {
         const id = generateId();
-        const activity: Activity = { ...data, id, createdAt: new Date().toISOString() };
+        const activity: Activity = {
+          ...data,
+          id,
+          createdAt: new Date().toISOString(),
+        };
         set((s) => ({ activities: [...s.activities, activity] }));
+
+        // Auto-create goal if goalAmount is set
+        if (data.goalAmount && data.goalFrequency) {
+          get().addGoal({
+            activityId: id,
+            targetHours: data.goalAmount,
+            frequency: data.goalFrequency,
+            autoCreated: true,
+          });
+        }
+
         return id;
       },
 
-      updateActivity: (id, data) =>
+      updateActivity: (id, data) => {
+        const { activities, goals } = get();
+        const current = activities.find((a) => a.id === id);
+        if (!current) return;
+
+        const merged = { ...current, ...data };
+
         set((s) => ({
           activities: s.activities.map((a) =>
             a.id === id ? { ...a, ...data } : a
           ),
-        })),
+        }));
+
+        // Sync auto-created goal
+        const existingGoal = goals.find(
+          (g) => g.activityId === id && g.autoCreated
+        );
+
+        if (merged.goalAmount && merged.goalFrequency) {
+          if (existingGoal) {
+            get().updateGoal(existingGoal.id, {
+              targetHours: merged.goalAmount,
+              frequency: merged.goalFrequency,
+            });
+          } else {
+            get().addGoal({
+              activityId: id,
+              targetHours: merged.goalAmount,
+              frequency: merged.goalFrequency,
+              autoCreated: true,
+            });
+          }
+        } else if (!merged.goalAmount && existingGoal) {
+          get().deleteGoal(existingGoal.id);
+        }
+      },
 
       deleteActivity: (id) =>
         set((s) => ({
@@ -70,7 +131,11 @@ export const useStore = create<AppState>()(
         set((s) => ({
           timeEntries: [
             ...s.timeEntries,
-            { ...data, id: generateId(), createdAt: new Date().toISOString() },
+            {
+              ...data,
+              id: generateId(),
+              createdAt: new Date().toISOString(),
+            },
           ],
         })),
 
@@ -86,13 +151,16 @@ export const useStore = create<AppState>()(
           timeEntries: s.timeEntries.filter((e) => e.id !== id),
         })),
 
-      addGoal: (data) =>
+      addGoal: (data) => {
+        const id = generateId();
         set((s) => ({
           goals: [
             ...s.goals,
-            { ...data, id: generateId(), createdAt: new Date().toISOString() },
+            { ...data, id, createdAt: new Date().toISOString() },
           ],
-        })),
+        }));
+        return id;
+      },
 
       updateGoal: (id, data) =>
         set((s) => ({
@@ -103,6 +171,29 @@ export const useStore = create<AppState>()(
 
       deleteGoal: (id) =>
         set((s) => ({ goals: s.goals.filter((g) => g.id !== id) })),
+
+      addCategory: (data) => {
+        const id = generateId();
+        set((s) => ({
+          categories: [
+            ...s.categories,
+            { ...data, id, isDefault: false },
+          ],
+        }));
+        return id;
+      },
+
+      updateCategory: (id, data) =>
+        set((s) => ({
+          categories: s.categories.map((c) =>
+            c.id === id ? { ...c, ...data } : c
+          ),
+        })),
+
+      deleteCategory: (id) =>
+        set((s) => ({
+          categories: s.categories.filter((c) => c.id !== id),
+        })),
 
       getTodayMinutes: () => {
         const { timeEntries } = get();
@@ -115,15 +206,19 @@ export const useStore = create<AppState>()(
       getWeekMinutes: () => {
         const { timeEntries } = get();
         const { start, end } = getDateRange(new Date(), "weekly");
-        return filterEntriesByDateRange(timeEntries, start, end)
-          .reduce((sum, e) => sum + e.duration, 0);
+        return filterEntriesByDateRange(timeEntries, start, end).reduce(
+          (sum, e) => sum + e.duration,
+          0
+        );
       },
 
       getMonthMinutes: () => {
         const { timeEntries } = get();
         const { start, end } = getDateRange(new Date(), "monthly");
-        return filterEntriesByDateRange(timeEntries, start, end)
-          .reduce((sum, e) => sum + e.duration, 0);
+        return filterEntriesByDateRange(timeEntries, start, end).reduce(
+          (sum, e) => sum + e.duration,
+          0
+        );
       },
 
       getActivityMinutes: (activityId, frequency) => {
@@ -138,9 +233,19 @@ export const useStore = create<AppState>()(
         const { goals, getActivityMinutes } = get();
         const goal = goals.find((g) => g.id === goalId);
         if (!goal) return 0;
-        const achievedMinutes = getActivityMinutes(goal.activityId, goal.frequency);
+        const achievedMinutes = getActivityMinutes(
+          goal.activityId,
+          goal.frequency
+        );
         const achievedHours = minutesToHours(achievedMinutes);
-        return Math.min(100, Math.round((achievedHours / goal.targetHours) * 100));
+        return Math.min(
+          100,
+          Math.round((achievedHours / goal.targetHours) * 100)
+        );
+      },
+
+      getCategoryById: (id) => {
+        return get().categories.find((c) => c.id === id);
       },
     }),
     {

@@ -1,18 +1,26 @@
 export type Frequency = "daily" | "weekly" | "monthly" | "yearly";
 
-export type Category =
-  | "work"
-  | "sport"
-  | "learning"
-  | "health"
-  | "creative"
-  | "personal"
-  | "other";
+export interface CustomCategory {
+  id: string;
+  name: string;
+  color: string;
+  isDefault: boolean;
+}
+
+export const DEFAULT_CATEGORIES: CustomCategory[] = [
+  { id: "work",     name: "Travail",    color: "#3B82F6", isDefault: true },
+  { id: "sport",    name: "Sport",      color: "#10B981", isDefault: true },
+  { id: "learning", name: "Formation",  color: "#8B5CF6", isDefault: true },
+  { id: "health",   name: "Santé",      color: "#EF4444", isDefault: true },
+  { id: "creative", name: "Créatif",    color: "#F59E0B", isDefault: true },
+  { id: "personal", name: "Personnel",  color: "#EC4899", isDefault: true },
+  { id: "other",    name: "Autre",      color: "#6B7280", isDefault: true },
+];
 
 export interface Activity {
   id: string;
   name: string;
-  category: Category;
+  category: string;
   color: string;
   icon: string;
   goalAmount?: number;
@@ -24,7 +32,7 @@ export interface Activity {
 export interface TimeEntry {
   id: string;
   activityId: string;
-  date: string; // ISO date string YYYY-MM-DD
+  date: string; // YYYY-MM-DD
   duration: number; // minutes
   comment?: string;
   createdAt: string;
@@ -36,53 +44,26 @@ export interface Goal {
   targetHours: number;
   frequency: Frequency;
   createdAt: string;
+  autoCreated?: boolean; // created from activity form
 }
-
-export interface DailySummary {
-  date: string;
-  totalMinutes: number;
-  entries: TimeEntry[];
-  topActivity?: Activity;
-}
-
-export interface WeeklySummary {
-  weekStart: string;
-  totalMinutes: number;
-  bestDay: string;
-  topActivity?: Activity;
-  goalProgress: GoalProgress[];
-}
-
-export interface GoalProgress {
-  activity: Activity;
-  goal: Goal;
-  achievedHours: number;
-  targetHours: number;
-  percentage: number;
-}
-
-export const CATEGORY_LABELS: Record<Category, string> = {
-  work: "Travail",
-  sport: "Sport",
-  learning: "Formation",
-  health: "Santé",
-  creative: "Créatif",
-  personal: "Personnel",
-  other: "Autre",
-};
-
-export const CATEGORY_COLORS: Record<Category, string> = {
-  work: "#3B82F6",
-  sport: "#10B981",
-  learning: "#8B5CF6",
-  health: "#EF4444",
-  creative: "#F59E0B",
-  personal: "#EC4899",
-  other: "#6B7280",
-};
 
 export const ACTIVITY_ICONS = [
-  "💼", "📚", "🏃", "🎨", "💪", "🧘", "🎵", "✍️",
-  "🔬", "💻", "🍳", "🌱", "🎯", "📊", "🤝", "🏊",
-  "🚴", "🧠", "🎭", "📝",
+  // Travail & Productivité
+  "💼", "💻", "📊", "📈", "📝", "✍️", "📋", "🖥️", "⌨️", "🖱️",
+  "📌", "📎", "🗂️", "🗃️", "📧", "📅", "🔧", "⚙️", "🛠️", "📡",
+  // Formation & Apprentissage
+  "📚", "🎓", "🔬", "🧪", "📖", "🧠", "💡", "🔭", "🧮", "🔍",
+  // Sport & Santé
+  "🏃", "💪", "🧘", "🏊", "🚴", "⚽", "🏋️", "🧗", "🤸", "🏸",
+  "🎾", "🏈", "⛷️", "🏄", "🥊", "🤾", "🧜", "🚶", "🏇", "🤺",
+  // Créatif
+  "🎨", "🎵", "🎸", "🎭", "📸", "✏️", "🖌️", "🎬", "🎤", "🎷",
+  "🎹", "🖊️", "✂️", "🎲", "🃏", "🎯",
+  // Personnel & Lifestyle
+  "🍳", "🌱", "🤝", "❤️", "🏠", "🧹", "🛒", "🌍", "🐕", "🌿",
+  "☕", "🍵", "🥗", "💆", "🛁", "🌺",
+  // Finance & Business
+  "💰", "💳", "📉", "🏦", "💹", "🤑", "💎",
+  // Mindset & Objectifs
+  "🏆", "🌟", "⭐", "🎯", "🚀", "🔥", "💫", "🌈", "☀️", "🌙",
 ];

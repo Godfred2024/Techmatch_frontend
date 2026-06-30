@@ -6,7 +6,6 @@ import { fr } from "date-fns/locale";
 
 import { useStore } from "@/lib/store";
 import { formatMinutes, getDateRange, filterEntriesByDateRange } from "@/lib/utils";
-import { CATEGORY_COLORS, CATEGORY_LABELS } from "@/lib/types";
 import { Card } from "@/components/ui/card";
 import { WeekBarChart } from "@/components/charts/week-bar-chart";
 import { cn } from "@/lib/utils";
@@ -20,7 +19,7 @@ const PERIOD_TO_FREQUENCY: Record<Period, "weekly" | "monthly" | "yearly"> = {
 };
 
 export default function StatsPage() {
-  const { activities, timeEntries } = useStore();
+  const { activities, timeEntries, categories } = useStore();
   const [period, setPeriod] = useState<Period>("week");
 
   const { start, end } = useMemo(
@@ -59,14 +58,17 @@ export default function StatsPage() {
     });
     return Object.entries(map)
       .sort((a, b) => b[1] - a[1])
-      .map(([cat, mins]) => ({
-        category: cat,
-        label: CATEGORY_LABELS[cat as keyof typeof CATEGORY_LABELS] || cat,
-        mins,
-        pct: totalMinutes > 0 ? Math.round((mins / totalMinutes) * 100) : 0,
-        color: CATEGORY_COLORS[cat as keyof typeof CATEGORY_COLORS] || "#6B7280",
-      }));
-  }, [periodEntries, activities, totalMinutes]);
+      .map(([catId, mins]) => {
+        const cat = categories.find((c) => c.id === catId);
+        return {
+          category: catId,
+          label: cat?.name ?? catId,
+          mins,
+          pct: totalMinutes > 0 ? Math.round((mins / totalMinutes) * 100) : 0,
+          color: cat?.color ?? "#6B7280",
+        };
+      });
+  }, [periodEntries, activities, totalMinutes, categories]);
 
   // Daily data for chart (week view)
   const weekDays = useMemo(() => {

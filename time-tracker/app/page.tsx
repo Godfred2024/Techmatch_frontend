@@ -2,26 +2,28 @@
 
 import { useMemo } from "react";
 import Link from "next/link";
-import { Plus, TrendingUp, Zap } from "lucide-react";
+import { Plus, Clock } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 
 import { useStore } from "@/lib/store";
 import { formatMinutes, formatHours, getDateRange, filterEntriesByDateRange } from "@/lib/utils";
-import { CATEGORY_COLORS } from "@/lib/types";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { ProgressRing } from "@/components/ui/progress-ring";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { ActivityBar } from "@/components/dashboard/activity-bar";
 import { GoalCard } from "@/components/dashboard/goal-card";
 
 export default function DashboardPage() {
-  const { activities, timeEntries, goals, getTodayMinutes, getWeekMinutes } = useStore();
+  const {
+    activities, timeEntries, goals,
+    getTodayMinutes, getWeekMinutes,
+    categories,
+  } = useStore();
 
   const todayMinutes = getTodayMinutes();
-  const weekMinutes = getWeekMinutes();
-  const todayLabel = format(new Date(), "EEEE d MMMM", { locale: fr });
+  const weekMinutes  = getWeekMinutes();
+  const todayLabel   = format(new Date(), "EEEE d MMMM", { locale: fr });
 
   const topActivities = useMemo(() => {
     const { start, end } = getDateRange(new Date(), "weekly");
@@ -34,7 +36,10 @@ export default function DashboardPage() {
       .map(([id, mins]) => ({ activity: activities.find((a) => a.id === id), mins }))
       .filter((x) => x.activity)
       .sort((a, b) => b.mins - a.mins)
-      .slice(0, 4) as Array<{ activity: NonNullable<(typeof activities)[number]>; mins: number }>;
+      .slice(0, 4) as Array<{
+        activity: NonNullable<(typeof activities)[number]>;
+        mins: number;
+      }>;
   }, [timeEntries, activities]);
 
   const categoryBreakdown = useMemo(() => {
@@ -48,13 +53,17 @@ export default function DashboardPage() {
     });
     return Object.entries(byCategory)
       .sort((a, b) => b[1] - a[1])
-      .map(([cat, mins]) => ({
-        category: cat,
-        mins,
-        pct: totalMins > 0 ? Math.round((mins / totalMins) * 100) : 0,
-        color: CATEGORY_COLORS[cat as keyof typeof CATEGORY_COLORS] || "#6B7280",
-      }));
-  }, [timeEntries, activities]);
+      .map(([catId, mins]) => {
+        const cat = categories.find((c) => c.id === catId);
+        return {
+          catId,
+          name: cat?.name ?? catId,
+          mins,
+          pct: totalMins > 0 ? Math.round((mins / totalMins) * 100) : 0,
+          color: cat?.color ?? "#6B7280",
+        };
+      });
+  }, [timeEntries, activities, categories]);
 
   const activeGoals = goals
     .map((g) => ({
@@ -62,15 +71,19 @@ export default function DashboardPage() {
       activity: activities.find((a) => a.id === g.activityId),
     }))
     .filter((x) => x.activity)
-    .slice(0, 3) as Array<{ goal: (typeof goals)[number]; activity: NonNullable<(typeof activities)[number]> }>;
+    .slice(0, 3) as Array<{
+      goal: (typeof goals)[number];
+      activity: NonNullable<(typeof activities)[number]>;
+    }>;
 
   const monthMinutes = useMemo(() => {
     const { start, end } = getDateRange(new Date(), "monthly");
-    return filterEntriesByDateRange(timeEntries, start, end).reduce((s, e) => s + e.duration, 0);
+    return filterEntriesByDateRange(timeEntries, start, end).reduce(
+      (s, e) => s + e.duration, 0
+    );
   }, [timeEntries]);
 
-  const dailyGoalMinutes = 480;
-  const dailyProgress = Math.min(100, Math.round((todayMinutes / dailyGoalMinutes) * 100));
+  const dailyProgress = Math.min(100, Math.round((todayMinutes / 480) * 100));
 
   return (
     <div className="px-4 pt-12 pb-4 space-y-6 animate-fade-in">
@@ -80,10 +93,27 @@ export default function DashboardPage() {
           <p className="text-sm text-gray-400 capitalize">{todayLabel}</p>
           <h1 className="text-2xl font-bold text-gray-900 mt-0.5">Bonjour 👋</h1>
         </div>
-        <Link href="/activities">
-          <Button size="icon" variant="secondary">
-            <Plus size={18} />
-          </Button>
+      </div>
+
+      {/* CTAs prominents */}
+      <div className="grid grid-cols-2 gap-3">
+        <Link href="/log" className="block">
+          <div className="bg-gray-900 text-white rounded-2xl p-4 h-full flex flex-col gap-2 active:scale-95 transition-transform">
+            <div className="w-9 h-9 bg-white/10 rounded-xl flex items-center justify-center">
+              <Clock size={18} className="text-white" />
+            </div>
+            <p className="text-sm font-semibold mt-1">Saisir du temps</p>
+            <p className="text-xs text-white/60">Enregistrer une session</p>
+          </div>
+        </Link>
+        <Link href="/activities" className="block">
+          <div className="bg-white border border-gray-100 shadow-sm rounded-2xl p-4 h-full flex flex-col gap-2 active:scale-95 transition-transform">
+            <div className="w-9 h-9 bg-gray-100 rounded-xl flex items-center justify-center">
+              <Plus size={18} className="text-gray-700" />
+            </div>
+            <p className="text-sm font-semibold text-gray-900 mt-1">Nouvelle activité</p>
+            <p className="text-xs text-gray-400">Créer ou gérer</p>
+          </div>
         </Link>
       </div>
 
@@ -112,17 +142,9 @@ export default function DashboardPage() {
 
       {/* Quick stats */}
       <div className="grid grid-cols-2 gap-3">
-        <StatCard label="Cette semaine" value={formatHours(weekMinutes)} icon={TrendingUp} />
-        <StatCard label="Ce mois" value={formatHours(monthMinutes)} icon={Zap} />
+        <StatCard label="Cette semaine" value={formatHours(weekMinutes)} icon={Clock} />
+        <StatCard label="Ce mois"       value={formatHours(monthMinutes)} icon={Clock} />
       </div>
-
-      {/* Quick log */}
-      <Link href="/log" className="block">
-        <Button className="w-full h-14 text-base font-semibold rounded-2xl shadow-sm">
-          <Plus size={20} />
-          Enregistrer du temps
-        </Button>
-      </Link>
 
       {/* Top activities */}
       {topActivities.length > 0 && (
@@ -172,15 +194,12 @@ export default function DashboardPage() {
           </h2>
           <Card>
             <div className="space-y-3">
-              {categoryBreakdown.map(({ category, pct, color }) => (
-                <div key={category} className="flex items-center gap-3">
+              {categoryBreakdown.map(({ catId, name, pct, color }) => (
+                <div key={catId} className="flex items-center gap-3">
                   <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                  <span className="text-sm text-gray-700 flex-1 capitalize">{category}</span>
+                  <span className="text-sm text-gray-700 flex-1">{name}</span>
                   <div className="w-24 bg-gray-100 rounded-full h-1.5">
-                    <div
-                      className="h-full rounded-full"
-                      style={{ width: `${pct}%`, backgroundColor: color }}
-                    />
+                    <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
                   </div>
                   <span className="text-xs font-semibold text-gray-500 w-8 text-right">{pct}%</span>
                 </div>
@@ -192,15 +211,12 @@ export default function DashboardPage() {
 
       {/* Empty state */}
       {activities.length === 0 && (
-        <div className="text-center py-12 space-y-3">
+        <div className="text-center py-8 space-y-3">
           <p className="text-5xl">⏱️</p>
           <h3 className="font-semibold text-gray-900">Suivez votre temps</h3>
           <p className="text-sm text-gray-500 max-w-xs mx-auto">
             Créez vos premières activités et commencez à mesurer ce qui compte
           </p>
-          <Link href="/activities">
-            <Button className="mt-2">Créer une activité</Button>
-          </Link>
         </div>
       )}
     </div>
