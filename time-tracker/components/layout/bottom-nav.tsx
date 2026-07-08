@@ -19,24 +19,27 @@ export function BottomNav() {
   return (
     <nav className="fixed bottom-0 inset-x-0 z-40 max-w-md mx-auto">
       <div className="bg-white/90 backdrop-blur-xl border-t border-gray-100 safe-bottom">
-        <div className="flex items-center justify-around px-2 pt-2 pb-1">
+        <div className="flex items-center justify-around px-2 pb-1">
           {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
             const isActive = href === "/" ? pathname === "/" : pathname.startsWith(href);
             return (
               <Link
                 key={href}
                 href={href}
-                className={cn(
-                  "flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl transition-all duration-150 min-w-0",
-                  isActive ? "text-gray-900" : "text-gray-400 hover:text-gray-600"
-                )}
+                className="relative flex flex-col items-center gap-1 px-3 pt-3 pb-1.5 min-w-0 transition-opacity duration-150"
               >
+                {isActive && (
+                  <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-[3px] bg-gray-900 rounded-full" />
+                )}
                 <Icon
                   size={22}
-                  strokeWidth={isActive ? 2.2 : 1.8}
-                  className={cn(isActive && "fill-gray-900/8")}
+                  strokeWidth={isActive ? 2.5 : 1.7}
+                  className={isActive ? "text-gray-900" : "text-gray-400"}
                 />
-                <span className={cn("text-[10px] font-medium tracking-wide", isActive ? "text-gray-900" : "text-gray-400")}>
+                <span className={cn(
+                  "text-[10px] tracking-wide",
+                  isActive ? "font-bold text-gray-900" : "font-medium text-gray-400"
+                )}>
                   {label}
                 </span>
               </Link>

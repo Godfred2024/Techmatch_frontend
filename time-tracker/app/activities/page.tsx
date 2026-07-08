@@ -151,8 +151,12 @@ export default function ActivitiesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Activités</h1>
-          <p className="text-sm text-gray-400 mt-0.5">{activeActivities.length} actives</p>
+          <h1 className="text-2xl font-bold text-gray-900">
+            {tab === "activities" ? "Activités" : "Catégories"}
+          </h1>
+          <p className="text-sm text-gray-400 mt-0.5">
+            {tab === "activities" ? `${activeActivities.length} actives` : `${categories.length} au total`}
+          </p>
         </div>
         <Button size="icon" onClick={tab === "activities" ? openCreateActivity : openCreateCategory}>
           <Plus size={18} />

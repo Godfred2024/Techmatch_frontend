@@ -37,18 +37,19 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
         className={cn(
           "relative w-full max-w-lg bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl",
           "animate-in slide-in-from-bottom sm:zoom-in-95 duration-200",
+          "max-h-[92vh] flex flex-col",
           className
         )}
       >
         {title && (
-          <div className="flex items-center justify-between p-5 border-b border-gray-100">
+          <div className="flex items-center justify-between p-5 border-b border-gray-100 shrink-0">
             <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
             <Button size="icon-sm" variant="ghost" onClick={onClose}>
               <X size={16} />
             </Button>
           </div>
         )}
-        <div className="p-5">{children}</div>
+        <div className="p-5 overflow-y-auto">{children}</div>
       </div>
     </div>
   );
