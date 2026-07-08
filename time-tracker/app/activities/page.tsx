@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Edit2, Archive, Tag, Trash2 } from "lucide-react";
+import { Plus, Edit2, Archive, Tag, Trash2, ChevronDown } from "lucide-react";
 
 import { useStore } from "@/lib/store";
 import { type Activity, type Frequency, type CustomCategory, ACTIVITY_ICONS } from "@/lib/types";
@@ -69,18 +69,23 @@ export default function ActivitiesPage() {
     defaultActivityForm(categories[0]?.id ?? "")
   );
   const [actError, setActError] = useState("");
+  const [showIconPicker, setShowIconPicker] = useState(false);
+  const [showColorPicker, setShowColorPicker] = useState(false);
 
   // Category modal
   const [showCatModal, setShowCatModal] = useState(false);
   const [editCatId, setEditCatId] = useState<string | null>(null);
   const [catForm, setCatForm] = useState<CatForm>({ name: "", color: CATEGORY_COLORS_PALETTE[0] });
   const [catError, setCatError] = useState("");
+  const [showCatColorPicker, setShowCatColorPicker] = useState(false);
 
   // ── Activity handlers ──────────────────────────────────────────────────
   function openCreateActivity() {
     setEditActivityId(null);
     setActForm(defaultActivityForm(categories[0]?.id ?? ""));
     setActError("");
+    setShowIconPicker(false);
+    setShowColorPicker(false);
     setShowActivityModal(true);
   }
 
@@ -95,6 +100,8 @@ export default function ActivitiesPage() {
       goalFrequency: a.goalFrequency ?? "weekly",
     });
     setActError("");
+    setShowIconPicker(false);
+    setShowColorPicker(false);
     setShowActivityModal(true);
   }
 
@@ -121,6 +128,7 @@ export default function ActivitiesPage() {
     setEditCatId(null);
     setCatForm({ name: "", color: CATEGORY_COLORS_PALETTE[0] });
     setCatError("");
+    setShowCatColorPicker(false);
     setShowCatModal(true);
   }
 
@@ -128,6 +136,7 @@ export default function ActivitiesPage() {
     setEditCatId(c.id);
     setCatForm({ name: c.name, color: c.color });
     setCatError("");
+    setShowCatColorPicker(false);
     setShowCatModal(true);
   }
 
@@ -311,46 +320,81 @@ export default function ActivitiesPage() {
             options={categories.map((c) => ({ value: c.id, label: c.name }))}
           />
 
-          {/* Icon picker */}
+          {/* Icon picker — collapsed by default */}
           <div>
             <p className="text-sm font-medium text-gray-700 mb-2">Icône</p>
-            <div className="grid grid-cols-10 gap-1 max-h-40 overflow-y-auto scrollbar-hide">
-              {ACTIVITY_ICONS.map((icon) => (
-                <button
-                  key={icon}
-                  onClick={() => setActForm((f) => ({ ...f, icon }))}
-                  className={cn(
-                    "h-9 w-9 rounded-xl text-lg flex items-center justify-center transition-all",
-                    actForm.icon === icon ? "bg-gray-900" : "bg-gray-100 hover:bg-gray-200"
-                  )}
-                >
-                  {icon}
-                </button>
-              ))}
-            </div>
+            <button
+              type="button"
+              onClick={() => { setShowIconPicker((v) => !v); setShowColorPicker(false); }}
+              className="flex items-center gap-3 w-full p-3 bg-gray-50 rounded-xl border border-gray-200 active:bg-gray-100 transition-colors"
+            >
+              <span className="text-2xl">{actForm.icon}</span>
+              <span className="text-sm text-gray-500 flex-1 text-left">Choisir une icône</span>
+              <ChevronDown
+                size={16}
+                className={cn("text-gray-400 transition-transform duration-200", showIconPicker && "rotate-180")}
+              />
+            </button>
+            {showIconPicker && (
+              <div className="mt-2 grid grid-cols-10 gap-1 max-h-44 overflow-y-auto scrollbar-hide bg-gray-50 rounded-xl p-2">
+                {ACTIVITY_ICONS.map((icon) => (
+                  <button
+                    key={icon}
+                    type="button"
+                    onClick={() => { setActForm((f) => ({ ...f, icon })); setShowIconPicker(false); }}
+                    className={cn(
+                      "h-9 w-9 rounded-xl text-lg flex items-center justify-center transition-all",
+                      actForm.icon === icon ? "bg-gray-900" : "hover:bg-gray-200"
+                    )}
+                  >
+                    {icon}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Color picker */}
+          {/* Color picker — collapsed by default */}
           <div>
             <p className="text-sm font-medium text-gray-700 mb-2">Couleur</p>
-            <div className="flex flex-wrap gap-2">
-              {ACTIVITY_COLORS.map((c) => (
-                <button
-                  key={c}
-                  onClick={() => setActForm((f) => ({ ...f, color: c }))}
-                  className={cn(
-                    "w-8 h-8 rounded-full border-2 transition-all",
-                    actForm.color === c ? "border-gray-900 scale-110" : "border-transparent"
-                  )}
-                  style={{ backgroundColor: c }}
-                />
-              ))}
-            </div>
+            <button
+              type="button"
+              onClick={() => { setShowColorPicker((v) => !v); setShowIconPicker(false); }}
+              className="flex items-center gap-3 w-full p-3 bg-gray-50 rounded-xl border border-gray-200 active:bg-gray-100 transition-colors"
+            >
+              <div
+                className="w-6 h-6 rounded-full border-2 border-white shadow-sm shrink-0"
+                style={{ backgroundColor: actForm.color }}
+              />
+              <span className="text-sm text-gray-500 flex-1 text-left">Choisir une couleur</span>
+              <ChevronDown
+                size={16}
+                className={cn("text-gray-400 transition-transform duration-200", showColorPicker && "rotate-180")}
+              />
+            </button>
+            {showColorPicker && (
+              <div className="mt-2 flex flex-wrap gap-2 bg-gray-50 rounded-xl p-3">
+                {ACTIVITY_COLORS.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => { setActForm((f) => ({ ...f, color: c })); setShowColorPicker(false); }}
+                    className={cn(
+                      "w-9 h-9 rounded-full border-2 transition-all",
+                      actForm.color === c ? "border-gray-900 scale-110" : "border-transparent"
+                    )}
+                    style={{ backgroundColor: c }}
+                  />
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Goal (optional) */}
           <div>
-            <p className="text-sm font-medium text-gray-700 mb-1">Objectif <span className="text-gray-400 font-normal">(optionnel — sera ajouté aux objectifs)</span></p>
+            <p className="text-sm font-medium text-gray-700 mb-1">
+              Objectif <span className="text-gray-400 font-normal">(optionnel)</span>
+            </p>
             <div className="flex gap-2">
               <Input
                 type="number"
@@ -370,33 +414,12 @@ export default function ActivitiesPage() {
             </div>
             {actForm.goalAmount && (
               <p className="text-xs text-emerald-600 mt-1 font-medium">
-                ✓ Un objectif de {actForm.goalAmount}h/{actForm.goalFrequency === "weekly" ? "sem." : actForm.goalFrequency === "monthly" ? "mois" : actForm.goalFrequency === "daily" ? "jour" : "an"} sera créé
+                ✓ Objectif de {actForm.goalAmount}h/{actForm.goalFrequency === "weekly" ? "sem." : actForm.goalFrequency === "monthly" ? "mois" : actForm.goalFrequency === "daily" ? "jour" : "an"}
               </p>
             )}
           </div>
 
-          {/* Preview */}
-          <div
-            className="flex items-center gap-3 p-3 rounded-xl"
-            style={{ backgroundColor: actForm.color + "12" }}
-          >
-            <div
-              className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
-              style={{ backgroundColor: actForm.color + "22" }}
-            >
-              {actForm.icon}
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-gray-900">
-                {actForm.name || "Nom de l'activité"}
-              </p>
-              {getCat(actForm.category) && (
-                <Badge color={getCat(actForm.category)!.color}>
-                  {getCat(actForm.category)!.name}
-                </Badge>
-              )}
-            </div>
-          </div>
+          {actError && <p className="text-sm text-red-500">{actError}</p>}
 
           <div className="flex gap-2 pt-1">
             <Button variant="secondary" className="flex-1" onClick={() => setShowActivityModal(false)}>
@@ -423,32 +446,41 @@ export default function ActivitiesPage() {
             placeholder="Ex : Famille, Side project..."
             error={catError}
           />
+
+          {/* Category color picker — collapsed by default */}
           <div>
             <p className="text-sm font-medium text-gray-700 mb-2">Couleur</p>
-            <div className="flex flex-wrap gap-2">
-              {CATEGORY_COLORS_PALETTE.map((c) => (
-                <button
-                  key={c}
-                  onClick={() => setCatForm((f) => ({ ...f, color: c }))}
-                  className={cn(
-                    "w-8 h-8 rounded-full border-2 transition-all",
-                    catForm.color === c ? "border-gray-900 scale-110" : "border-transparent"
-                  )}
-                  style={{ backgroundColor: c }}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* Preview */}
-          <div
-            className="flex items-center gap-3 p-3 rounded-xl"
-            style={{ backgroundColor: catForm.color + "12" }}
-          >
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: catForm.color + "22" }}>
-              <Tag size={16} style={{ color: catForm.color }} />
-            </div>
-            <p className="text-sm font-semibold text-gray-900">{catForm.name || "Nom de la catégorie"}</p>
+            <button
+              type="button"
+              onClick={() => setShowCatColorPicker((v) => !v)}
+              className="flex items-center gap-3 w-full p-3 bg-gray-50 rounded-xl border border-gray-200 active:bg-gray-100 transition-colors"
+            >
+              <div
+                className="w-6 h-6 rounded-full border-2 border-white shadow-sm shrink-0"
+                style={{ backgroundColor: catForm.color }}
+              />
+              <span className="text-sm text-gray-500 flex-1 text-left">Choisir une couleur</span>
+              <ChevronDown
+                size={16}
+                className={cn("text-gray-400 transition-transform duration-200", showCatColorPicker && "rotate-180")}
+              />
+            </button>
+            {showCatColorPicker && (
+              <div className="mt-2 flex flex-wrap gap-2 bg-gray-50 rounded-xl p-3">
+                {CATEGORY_COLORS_PALETTE.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => { setCatForm((f) => ({ ...f, color: c })); setShowCatColorPicker(false); }}
+                    className={cn(
+                      "w-9 h-9 rounded-full border-2 transition-all",
+                      catForm.color === c ? "border-gray-900 scale-110" : "border-transparent"
+                    )}
+                    style={{ backgroundColor: c }}
+                  />
+                ))}
+              </div>
+            )}
           </div>
 
           {catError && <p className="text-sm text-red-500">{catError}</p>}
